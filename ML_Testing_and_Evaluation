@@ -1,0 +1,169 @@
+from scipy.io import arff
+import pandas as pd
+from sklearn import tree
+import numpy as np
+from sklearn.model_selection import cross_val_score
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics.classification import cohen_kappa_score
+from sklearn.metrics import make_scorer
+from sklearn.cluster import KMeans
+from sklearn.ensemble import RandomForestClassifier
+from sklearn import svm
+
+
+def normalize(data):     for
+
+
+p in data.columns:         if p != ['C']:             max_value = data[p].max()
+min_value = data[p].min()
+data[p] = (data[p] - min_value) / (max_value - min_value)
+return data
+
+
+def makeLabels(data):     inputs = data.drop(['C'], axis=1)
+
+
+labels = data.iloc[:, 14]
+return inputs, labels
+
+
+def train(a, b, model):     acc = cross_val_score(model, a, b, cv=10, scoring='accuracy')
+
+
+acc = np.round(acc, 3)
+prec = cross_val_score(model, a, b, cv=10, scoring='precision')
+prec = np.round(prec, 3)
+rec = cross_val_score(model, a, b, cv=10, scoring='recall')
+rec = np.round(rec, 3)
+kappa = make_scorer(cohen_kappa_score)
+kappa = cross_val_score(model, a, b, cv=10, scoring=kappa)
+kappa = np.round(kappa, 3)
+print('Accuracy =', np.mean(acc))
+print('Precision =', np.mean(prec))
+print('Recall =', np.mean(rec))
+print('Kappa stat =', np.mean(kappa))  # print('')
+
+
+def test(a, b, c, model):     mod = model.fit(a, b)
+
+
+pred = mod.predict(c)
+return pred
+
+# reads data and splits it in inputs and labels data = arff.loadarff('CE802_Ass_2017_Data.arff') df = pd.DataFrame(data[0]) df = df.replace(b'False', 0) df = df.replace(b'True', 1) df.head() df = normalize(df) x, y = makeLabels(df)
+
+# pruned decision tree #entropy = splits based on information gain algorithm #min_impurity_decrease = preprunes the tree, the higher it is the more it cuts #if min_imp_dec >= 0.05 it puts everything in one class #best min_imp_dec value seems to be in the order of 10^(-3) id3 = tree.DecisionTreeClassifier(criterion='entropy', min_impurity_decrease=0.001) #naive bayes classifier nb = GaussianNB() #knn classifier #k=7 gives a good accuracy ~6.3 #k~35 gives a good accuracy, but it might be overfitting ~6.4 #p is the tye of metric, p=1 is manhattan, p=2 euclidean #k=1,p=1 gives accuracy ~6.5, but it is suspicious knn = KNeighborsClassifier(n_neighbors=7, p=2) #uses a number of different decision trees on the data rfc = RandomForestClassifier(n_estimators=100, min_impurity_decrease=0.001) #support vector machine for classification sv = svm.SVC(kernel='linear', degree=5, C=10)
+
+print('#####----- FULL DATA -----#####', '\n')
+print('-----DECISION TREE-----')
+train(x, y, id3)
+print('-----NAIVE BAYES-----')
+train(x, y, nb)
+print('-----KNN-----')
+train(x, y, knn)
+print('-----RANDOM FOREST-----')
+train(x, y, rfc)
+print('-----SUPPORT VECTOR-----')
+train(x, y, sv)
+
+# using kMeans to make the 2 clusters in the training data kmeans = KMeans(n_clusters=2) kmeans = kmeans.fit(df) clusters = kmeans.predict(df) df['clust'] = clusters.tolist() df0 = df[df['clust']==0] df1 = df[df['clust']==1]
+
+svUn = svm.OneClassSVM()
+svUn = svUn.fit(df)
+clusters2 = svUn.predict(df)
+df['clust'] = clusters.tolist()
+df2 = df[df['clust'] == 0]
+df3 = df[df['clust'] == 1]
+
+
+print('#####----- K-Means CLUSTER 0 -----#####')
+x0, y0 = makeLabels(df0)
+print('-----DECISION TREE-----')
+train(x0, y0, id3)
+print('-----NAIVE BAYES-----')
+train(x0, y0, nb)
+print('-----KNN-----')
+train(x0, y0, knn)
+print('-----RANDOM FOREST-----')
+train(x0, y0, rfc)
+print('-----SUPPORT VECTOR-----')
+train(x0, y0, sv)
+
+print('#####----- K-Means CLUSTER 1 -----#####')
+x1, y1 = makeLabels(df1)
+print('-----DECISION TREE-----')
+train(x1, y1, id3)
+print('-----NAIVE BAYES-----')
+train(x1, y1, nb)
+print('-----KNN-----')
+train(x1, y1, knn)
+print('-----RANDOM FOREST-----')
+train(x1, y1, rfc)
+print('-----SUPPORT VECTOR-----')
+train(x1, y1, sv)
+
+print('#####----- SVM CLUSTER 0 -----#####')
+x2, y2 = makeLabels(df2)
+print('-----DECISION TREE-----')
+train(x2, y2, id3)
+print('-----NAIVE BAYES-----')
+train(x2, y2, nb)
+print('-----KNN-----')
+train(x2, y2, knn)
+print('-----RANDOM FOREST-----')
+train(x2, y2, rfc)
+print('-----SUPPORT VECTOR-----')
+train(x2, y2, sv)
+
+print('#####----- SVM CLUSTER 1 -----#####')
+x3, y3 = makeLabels(df3)
+print('-----DECISION TREE-----')
+train(x3, y3, id3)
+print('-----NAIVE BAYES-----')
+train(x3, y3, nb)
+print('-----KNN-----')
+train(x3, y3, knn)
+print('-----RANDOM FOREST-----')
+train(x3, y3, rfc)
+print('-----SUPPORT VECTOR-----')
+train(x3, y3, sv)
+
+testData = arff.loadarff('CE802_Ass_2017_Test.arff')
+tdf = pd.DataFrame(testData[0])
+tdf.head()
+tdf = tdf.drop(['C'], axis=1)
+tdf = normalize(tdf)
+
+# ---UNCOMMENT IF NO CLUSTERS ARE TO BE USED--- #pred = test(x, y, tdf, rfc)
+
+# tdf['Pred'] = pred #tdf['Pred'] = tdf['Pred'].replace(0, 'False') #tdf['Pred'] = tdf['Pred'].replace(1, 'True') #tdf.to_csv('al17989_prediction.csv')
+
+kmeans = KMeans(n_clusters=2)
+df = df.drop(['clust'], axis=1)
+df = df.drop(['C'], axis=1)
+kmeans = kmeans.fit(df)
+clusters = kmeans.predict(tdf)
+tdf['clust'] = clusters.tolist()
+tdf0 = tdf[tdf['clust'] == 0]
+tdf1 = tdf[tdf['clust'] == 1]
+tdf0 = tdf0.drop(['clust'], axis=1)
+tdf1 = tdf1.drop(['clust'], axis=1)
+
+x2 = x2.drop(['clust'], axis=1)
+x3 = x3.drop(['clust'], axis=1)
+
+pred0 = test(x2, y2, tdf0, rfc)
+pred1 = test(x3, y3, tdf1, sv)
+
+tdf0['Pred'] = pred0
+tdf0['Pred'] = tdf0['Pred'].replace(0, 'False')
+tdf0['Pred'] = tdf0['Pred'].replace(1, 'True')
+tdf1['Pred'] = pred1
+tdf1['Pred'] = tdf1['Pred'].replace(0, 'False')
+tdf1['Pred'] = tdf1['Pred'].replace(1, 'True')
+
+arr = [tdf0, tdf1]
+p = pd.concat(arr, axis=0)
+p = p.sort_index(axis=0)
+p.to_csv('al17989_prediction.csv')
